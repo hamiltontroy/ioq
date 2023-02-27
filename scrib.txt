@@ -1,0 +1,106 @@
+there will be an ioq object
+
+when an io operation needs to take place,
+the operation is added to the queue along with
+a callback function to be called once the io operation finishes.
+
+after the io operation is added to the queue, that is the end of
+that functions' body. the operation will be added to the queue.
+
+an outside thread will have a loop running in which it will
+constantly be checking the ioq object to see if an io event
+has completed and its associated callback function is callable.
+
+if the ioq object indicates an io operation has completed, 
+then a calling thread may take the returned struct, and
+begin executing the callback function contained in the struct,
+and pass the function the parameters contained within the struct.
+
+
+
+
+
+
+this is going to use epoll under the hood, and seeks to 
+essentially abstract away the complex epoll api into a simple
+object where io operations can be initiated. And an outside
+loop will simply check the object to see if an operation has
+completed and it will return a struct with a new execution path.
+
+pseudo code for what will be returned by the object upon
+a ready state.
+struct temp_name
+{
+	int file_descriptor;
+	int io_failure; // set to a non 0 value if true.
+	function pointer;
+	function argument struct; // custom to the function
+};
+
+
+the function argument struct will vary based on
+whatever the function is supposed to take, but it is
+a struct because c++ has templated code, and this is
+very easy to implement because a struct is a type.
+
+in a very basic scenario such as parsing a file or
+something where the file needs to be read, then parsed,
+the function argument struct will be subjective only to
+that function and will likely contain a vector or buffer.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#include "temp_name.hpp"
+
+struct subjective_args
+{
+	// arguments for the subjective function
+	...
+};
+
+/*
+	... has metadata relating to the actual io
+	stuff, and contains a copy of the arguments
+	meant for the pass through call back function.
+*/
+template <typename T>
+struct ioq_metadata
+{	
+	int file_descriptor;	// the file descriptor that the io occured on
+	bool io_failure; 		// set to true if a failure occured
+	function pointer;		// a pointer to a pass through callback function
+	T args;					// arguments for the pass through callback function
+};
+
+/*
+	here is a description of the below function call;
+	
+	io_queue is an object that abstracts away asynchronous io.
+	this call tells the io_queue object to register a read.
+	
+	fd is a file description that supports the read() system call.
+	
+	MAX_COUNT is an integer that caps size of the internal buffer
+	 which will hold the bytes read from fd.
+	 
+	callback_function is a function which will be called when the io
+	 operation finishes. This function will be executed in whatever
+	 thread of execution calls it.
+	
+	callback_args is a struct which will hold the arguments that
+	 the callback function will take.
+*/
+side_read(io_queue, fd, MAX_COUNT, callback_function, callback_args);
+
+/*
+	side_read will add a job to the io_queue;
+	a thread running a loop will "scan" the io_queue for
+	if a job is ready.
+	
+	if a job is ready, io_queue will return a struct to the
+	calling thread which will allow the calling thread to
+	 then look through the struct and pass arguments to whatever
+	 function is referenced in the struct, then call the referenced
+	 function.
+*/
